@@ -43,6 +43,13 @@ public final class DeepLinkHandler {
     
     // MARK: - Module Registration
     
+    #if DEBUG
+    /// Clears all registered modules. Used for testing purposes only.
+    internal func clearRegistry() {
+        registry.removeAll()
+    }
+    #endif
+    
     /// Registers a module containing deep link handlers.
     ///
     /// - Parameter factory: A factory function returning an instance of `AppModule`.

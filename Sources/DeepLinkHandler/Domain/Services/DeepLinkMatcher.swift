@@ -51,24 +51,28 @@ open class DeepLinkMatcher {
         
         // Extract path components, handling URLs with or without scheme
         let pathComponents: [String]
-        if let scheme = urlScheme, scheme == configuredScheme {
-            // URL has the configured scheme, extract path normally
-            pathComponents = self.extractPathComponents(from: normalizedURL)
-        } else if urlScheme == nil {
-            // URL doesn't have a scheme, treat as path-only and extract directly
+        if urlScheme != nil {
+            // URL has a scheme, extract path normally (will match with candidates that have same scheme)
             pathComponents = self.extractPathComponents(from: normalizedURL)
         } else {
-            // URL has a different scheme, don't match
-            return nil
+            // URL doesn't have a scheme, treat as path-only and extract directly
+            pathComponents = self.extractPathComponents(from: normalizedURL)
         }
         
         let queryParams = url.queryParameters
         var results = [DeepLinkMatchResult]()
         
         for candidate in candidates {
-            // Check if candidate has the configured scheme
+            // Check if candidate scheme matches the URL scheme (not necessarily the configured scheme)
+            // This allows matching URLs registered with different schemes
             let candidateScheme = candidate.urlValue?.scheme
-            guard candidateScheme == configuredScheme else { continue }
+            if let urlScheme = urlScheme {
+                // URL has a scheme, candidate must match it
+                guard candidateScheme == urlScheme else { continue }
+            } else {
+                // URL has no scheme, candidate must have the configured scheme
+                guard candidateScheme == configuredScheme else { continue }
+            }
             
             if let result = self.matchPathComponents(pathComponents, with: candidate, parameters: queryParams) {
                 results.append(result)
@@ -118,7 +122,22 @@ open class DeepLinkMatcher {
     }
     
     private func extractPathComponents(from url: URLConvertible) -> [String] {
-        return url.urlStringValue
+        var urlString = url.urlStringValue
+        
+        // Remove scheme if present (e.g., "testapp://" -> "")
+        if let schemeRange = urlString.range(of: "://") {
+            urlString = String(urlString[schemeRange.upperBound...])
+        }
+        
+        // Remove query parameters and fragments
+        if let queryIndex = urlString.firstIndex(of: "?") {
+            urlString = String(urlString[..<queryIndex])
+        }
+        if let fragmentIndex = urlString.firstIndex(of: "#") {
+            urlString = String(urlString[..<fragmentIndex])
+        }
+        
+        return urlString
             .split(separator: "/")
             .filter { !$0.isEmpty }
             .map(String.init)
@@ -132,7 +151,17 @@ open class DeepLinkMatcher {
         case let .plain(value):
             return pathComponent == value ? .matches(nil) : .notMatches
         case let .placeholder(type, key):
-            return type.flatMap { valueConverters[$0] }?(pathComponents, index).map { .matches((key, $0)) } ?? .notMatches
+            // If type is specified, use the converter; otherwise, use the string value directly
+            if let type = type, let converter = valueConverters[type] {
+                if let value = converter(pathComponents, index) {
+                    return .matches((key, value))
+                } else {
+                    return .notMatches
+                }
+            } else {
+                // No type specified, use string value directly
+                return .matches((key, pathComponent))
+            }
         }
     }
     
