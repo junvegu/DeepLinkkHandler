@@ -58,10 +58,10 @@ public enum ModalPresentationStyle: String {
 
 // MARK: TransitionTypeManager Class
 
-class TransitionTypeManager {
+public class TransitionTypeManager {
     let urlConvertible: URLConvertible
 
-    init(urlConvertible: URLConvertible) {
+    public init(urlConvertible: URLConvertible) {
         self.urlConvertible = urlConvertible
     }
 

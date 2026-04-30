@@ -81,7 +81,8 @@ struct TabBarNavigationActionsAdapter: TabBarNavigationActions {
      Presents a view controller modally with the specified presentation style.
      */
     func present(window: UIWindow, presentationStyle: ModalPresentationStyle, viewController: UIViewController) {
-        let navigationController = UINavigationController(rootViewController: viewController)
+        let navigationController = viewController as? UINavigationController
+            ?? UINavigationController(rootViewController: viewController)
         navigationController.modalPresentationStyle = presentationStyle.value
         guard let rootViewController = window.rootViewController else { return }
         let baseViewController = topViewController(base: rootViewController)
